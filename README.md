@@ -1,6 +1,6 @@
 # UI Forge
 
-> **Não tem chave da Higgsfield API?** Crie a sua aqui: `{{LINK_DE_INDICACAO}}`
+> **Não tem chave da Higgsfield API?** [Crie sua conta aqui](https://higgsfield.ai/s/higgsfield-api-yt-devnascimento-Rgqwxf) e gere a chave no console.
 
 Gere telas de sistema (dashboard, agenda, lista, cadastro, caixa, relatórios, login) em **vários estilos de design ao mesmo tempo** e compare **vários modelos de IA lado a lado**, com o custo de cada imagem na tela.
 
@@ -122,6 +122,8 @@ src-tauri/src/       Rust (fila de jobs, providers CLI/API/simulação, históri
 ## English
 
 UI Forge generates business-software screens (dashboard, schedule, list, form, checkout, reports, login) in **many design styles at once** and compares **several AI image models side by side**, showing the cost of each image.
+
+> **No Higgsfield API key yet?** [Create your account here](https://higgsfield.ai/s/higgsfield-api-yt-devnascimento-Rgqwxf), then generate the key in the console.
 
 1. **[Download the Windows installer](https://github.com/Marcelo2mw/ui-forge-higgsfield/releases/latest/download/UI-Forge-Setup-x64.exe)** (or see all [Releases](https://github.com/Marcelo2mw/ui-forge-higgsfield/releases)). The installer is not code-signed, so Windows SmartScreen will warn you: click **More info** → **Run anyway**. It installs per user, without admin rights. When a new version comes out, a **"New version"** notice shows up in the title bar; updating is optional.
 2. Create an API key at [console.higgsfield.ai](https://console.higgsfield.ai) → *API Keys*.
