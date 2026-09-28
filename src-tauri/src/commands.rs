@@ -14,6 +14,7 @@ use crate::secrets;
 use crate::settings::{Settings, SettingsPatch};
 use crate::state::AppState;
 use crate::storage::{self, CellState, CellStatus, Manifest, RunStatus, RunSummary};
+use crate::updates;
 
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> Settings {
@@ -352,6 +353,12 @@ pub fn export_handoff(
         .ok_or_else(|| AppError::new(ErrorKind::NotFound, "imagem não encontrada neste run"))?;
     let path = write_handoff(Path::new(&img.path), Path::new(&dest), &image_name, &text_name, &text)?;
     Ok(path.to_string_lossy().into_owned())
+}
+
+/// Última versão publicada no GitHub, comparada com a instalada.
+#[tauri::command]
+pub async fn check_update(app: AppHandle, state: State<'_, AppState>) -> AppResult<updates::UpdateInfo> {
+    updates::check(&state.http, &app.package_info().version.to_string()).await
 }
 
 /// Copia a imagem e grava o texto em `dest`. Dos nomes, só vale o nome do arquivo:

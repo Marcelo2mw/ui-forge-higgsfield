@@ -6,6 +6,7 @@ mod secrets;
 mod settings;
 mod state;
 mod storage;
+mod updates;
 
 use tauri::Manager;
 
@@ -66,6 +67,7 @@ pub fn run() {
             commands::runs_dir,
             commands::export_images,
             commands::export_handoff,
+            commands::check_update,
             commands::credential_status,
             commands::set_api_credentials,
             commands::clear_api_credentials,

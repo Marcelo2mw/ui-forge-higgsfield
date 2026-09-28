@@ -25,6 +25,8 @@ pub struct Settings {
     pub concurrency: u32,
     pub api_base_url: String,
     pub ui_lang: String,
+    /// Consultar a última release no GitHub ao abrir (só avisa; nada é baixado sozinho).
+    pub check_updates: bool,
 }
 
 impl Default for Settings {
@@ -35,6 +37,7 @@ impl Default for Settings {
             concurrency: 4,
             api_base_url: "https://api.higgsfield.ai".into(),
             ui_lang: "pt-BR".into(),
+            check_updates: true,
         }
     }
 }
@@ -65,6 +68,7 @@ pub struct SettingsPatch {
     pub concurrency: Option<u32>,
     pub api_base_url: Option<String>,
     pub ui_lang: Option<String>,
+    pub check_updates: Option<bool>,
 }
 
 impl Settings {
@@ -86,6 +90,9 @@ impl Settings {
         }
         if let Some(v) = p.ui_lang {
             self.ui_lang = v;
+        }
+        if let Some(v) = p.check_updates {
+            self.check_updates = v;
         }
     }
 }

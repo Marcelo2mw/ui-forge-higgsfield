@@ -1,6 +1,6 @@
 [package]
 name = "ui-forge"
-version = "0.1.0"
+version = "0.1.1"
 description = "UI Forge: gerador de telas de sistema por estilo de design, com a Higgsfield"
 authors = ["Marcelo"]
 license = "MIT"

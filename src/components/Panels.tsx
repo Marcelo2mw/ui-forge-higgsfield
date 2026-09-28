@@ -1,10 +1,12 @@
-import { ChevronDown, ChevronRight, FolderOpen, KeyRound, Loader2, PlugZap, Search, Trash2 } from "lucide-react";
+import { getVersion } from "@tauri-apps/api/app";
+import { ChevronDown, ChevronRight, FolderOpen, KeyRound, Loader2, PlugZap, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
 import type { ProviderId } from "@/domain/types";
 import { useT, useUiLang } from "@/i18n";
 import { api, asAppError, type CredentialStatus, type LogEntry } from "@/lib/backend";
@@ -198,9 +200,54 @@ export function SettingsDialog() {
               {t.reveal}
             </Button>
           </Section>
+
+          <UpdatesSection />
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Versão instalada + aviso de versão nova (só avisa; baixar e instalar é escolha do usuário). */
+function UpdatesSection() {
+  const t = useT();
+  const { settings, saveSettings, checkUpdate } = useApp();
+  const [version, setVersion] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => setVersion(null));
+  }, []);
+  if (!settings) return null;
+
+  async function checkNow() {
+    setChecking(true);
+    try {
+      const u = await checkUpdate(true);
+      if (u?.available && u.latest) toast.success(t.updateFound(u.latest));
+      else toast.success(t.upToDate);
+    } catch (e) {
+      toast.error(t.updateCheckFailed, { description: asAppError(e).message });
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <Section title={t.updates} aside={version && <span className="text-[11px] text-muted-foreground">{t.installedVersion(version)}</span>}>
+      <div className="flex items-center justify-between gap-2">
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <Switch
+            checked={settings.checkUpdates}
+            onCheckedChange={(checkUpdates) => saveSettings({ checkUpdates }).catch((e) => toast.error(asAppError(e).message))}
+          />
+          {t.checkUpdatesOnStart}
+        </label>
+        <Button size="sm" variant="outline" disabled={checking} onClick={checkNow}>
+          {checking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+          {t.checkNow}
+        </Button>
+      </div>
+    </Section>
   );
 }
 

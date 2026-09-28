@@ -9,6 +9,7 @@ import {
   type Manifest,
   type RunSummary,
   type Settings,
+  type UpdateInfo,
 } from "@/lib/backend";
 
 interface Panels {
@@ -34,8 +35,15 @@ interface AppStore {
   selection: string[];
   lightbox: string | null;
   panels: Panels;
+  /** Resultado da última verificação de versão nova. */
+  update: UpdateInfo | null;
+  /** Versão que o usuário pediu para não avisar mais. */
+  skippedVersion: string | null;
 
   init: () => Promise<void>;
+  /** Consulta o GitHub. Na verificação manual, o erro sobe e a versão pulada volta a aparecer. */
+  checkUpdate: (manual?: boolean) => Promise<UpdateInfo | null>;
+  skipVersion: (version: string | null) => void;
   saveSettings: (patch: Partial<Settings>) => Promise<void>;
   refreshAccount: () => Promise<void>;
   refreshCli: () => Promise<void>;
@@ -60,6 +68,16 @@ function savedTileSize(): TileSize {
   }
 }
 
+const SKIPPED_KEY = "ui-forge.skippedVersion";
+
+function savedSkippedVersion(): string | null {
+  try {
+    return localStorage.getItem(SKIPPED_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export const useApp = create<AppStore>()((set, get) => ({
   tileSize: savedTileSize(),
   setTileSize: (tileSize) => {
@@ -80,14 +98,40 @@ export const useApp = create<AppStore>()((set, get) => ({
   selection: [],
   lightbox: null,
   panels: { log: false, history: false, settings: false, compare: false },
+  update: null,
+  skippedVersion: savedSkippedVersion(),
 
   init: async () => {
     const settings = await api.getSettings();
     set({ settings });
+    // Em paralelo e sem esperar: sem internet, o app abre normalmente.
+    if (settings.checkUpdates) void get().checkUpdate();
     await Promise.all([get().refreshCli(), get().refreshAccount(), get().refreshRuns()]);
     // Reabre o último run (útil depois de reiniciar no meio de uma geração).
     const last = get().runs[0];
     if (last && !get().run) await get().openRun(last.id);
+  },
+
+  checkUpdate: async (manual = false) => {
+    try {
+      const update = await api.checkUpdate();
+      set({ update });
+      if (manual && update.available) get().skipVersion(null);
+      return update;
+    } catch (e) {
+      if (manual) throw e;
+      return null;
+    }
+  },
+
+  skipVersion: (version) => {
+    try {
+      if (version) localStorage.setItem(SKIPPED_KEY, version);
+      else localStorage.removeItem(SKIPPED_KEY);
+    } catch {
+      /* ignora */
+    }
+    set({ skippedVersion: version });
   },
 
   saveSettings: async (patch) => {

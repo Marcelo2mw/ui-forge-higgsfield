@@ -22,7 +22,7 @@ Ou veja todas as versões em [Releases](https://github.com/Marcelo2mw/ui-forge-h
 
 Também tem a versão **`.msi`** na página da release, para quem instala por política de TI.
 
-- **Atualizar:** baixe a versão nova e instale por cima. Suas imagens e o histórico continuam lá.
+- **Atualizar:** quando sai uma versão nova, aparece um aviso **"Nova versão"** na barra de título. Atualizar é opcional: clique no aviso para baixar, feche o app e instale por cima. Suas imagens e o histórico continuam lá. Para desligar o aviso: Configurações → Atualizações.
 - **Desinstalar:** Configurações do Windows → Aplicativos → UI Forge → Desinstalar. Para apagar também as imagens e o histórico, remova a pasta `%LOCALAPPDATA%\com.uiforge.app`.
 - **macOS e Linux:** ainda não tem instalador pronto; dá para compilar a partir do código (veja [Desenvolvimento](#desenvolvimento)).
 
@@ -114,7 +114,7 @@ src-tauri/src/       Rust (fila de jobs, providers CLI/API/simulação, históri
 
 UI Forge generates business-software screens (dashboard, schedule, list, form, checkout, reports, login) in **many design styles at once** and compares **several AI image models side by side**, showing the cost of each image.
 
-1. **[Download the Windows installer](https://github.com/Marcelo2mw/ui-forge-higgsfield/releases/latest/download/UI-Forge-Setup-x64.exe)** (or see all [Releases](https://github.com/Marcelo2mw/ui-forge-higgsfield/releases)). The installer is not code-signed, so Windows SmartScreen will warn you: click **More info** → **Run anyway**. It installs per user, without admin rights.
+1. **[Download the Windows installer](https://github.com/Marcelo2mw/ui-forge-higgsfield/releases/latest/download/UI-Forge-Setup-x64.exe)** (or see all [Releases](https://github.com/Marcelo2mw/ui-forge-higgsfield/releases)). The installer is not code-signed, so Windows SmartScreen will warn you: click **More info** → **Run anyway**. It installs per user, without admin rights. When a new version comes out, a **"New version"** notice shows up in the title bar; updating is optional.
 2. Create an API key at [console.higgsfield.ai](https://console.higgsfield.ai) → *API Keys*.
 3. Open UI Forge → **Settings** → paste your Key ID and Key Secret → **Test**.
 4. Pick a business, a screen, styles, typography and models, then click **Generate**.

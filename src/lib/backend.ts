@@ -118,6 +118,17 @@ export interface Settings {
   concurrency: number;
   apiBaseUrl: string;
   uiLang: Lang;
+  checkUpdates: boolean;
+}
+
+export interface UpdateInfo {
+  current: string;
+  /** Última versão publicada; null quando ainda não há release. */
+  latest: string | null;
+  available: boolean;
+  pageUrl: string | null;
+  downloadUrl: string | null;
+  publishedAt: string | null;
 }
 
 export interface CliInfo {
@@ -197,6 +208,8 @@ export const api = {
   /** Salva a imagem + o texto de handoff numa pasta; devolve o caminho do texto. */
   exportHandoff: (runId: string, cellId: string, dest: string, imageName: string, textName: string, text: string) =>
     invoke<string>("export_handoff", { runId, cellId, dest, imageName, textName, text }),
+  /** Última release no GitHub comparada com a versão instalada. */
+  checkUpdate: () => invoke<UpdateInfo>("check_update"),
   credentialStatus: () => invoke<CredentialStatus>("credential_status"),
   setApiCredentials: (keyId: string, keySecret: string) =>
     invoke<CredentialStatus>("set_api_credentials", { keyId, keySecret }),

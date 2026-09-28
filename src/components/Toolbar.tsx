@@ -17,6 +17,7 @@ import { findStyle } from "@/presets/styles";
 import { PROMPT_TEMPLATE_VERSION } from "@/prompt/build";
 import { useApp } from "@/store/app";
 import { useConfig } from "@/store/config";
+import { UpdateBadge } from "./UpdateBadge";
 import { WindowControls } from "./WindowControls";
 
 const CONFIRM_ABOVE = 24;
@@ -142,6 +143,7 @@ export function Toolbar() {
       </div>
 
       <div className="flex items-center gap-1.5 pr-3">
+        <UpdateBadge />
         <Tooltip>
           <TooltipTrigger asChild>
             <button
