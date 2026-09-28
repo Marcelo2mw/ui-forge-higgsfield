@@ -1,0 +1,8 @@
+# Finais de linha iguais em qualquer sistema (LF no repositório)
+* text=auto eol=lf
+
+# Binários
+*.png binary
+*.ico binary
+*.icns binary
+*.webp binary

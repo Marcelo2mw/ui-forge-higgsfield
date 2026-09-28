@@ -1,0 +1,28 @@
+{
+  "created_at": "2026-09-28T03:36:28.574271Z",
+  "display_name": "Higgsfield Soul 2.0",
+  "id": "da9071ba-dbcf-4c02-bc3d-117f95e0f451",
+  "job_type": "text2image_soul_v2",
+  "min_result_url": null,
+  "params": {
+    "batch_size": 1,
+    "enhance_prompt": false,
+    "height": 1536,
+    "prompt": "UI Forge fixture: \"aspas\", 100% & acentuação ç ã",
+    "quality": "720p",
+    "seed": 635820,
+    "style": {
+      "id": "3db34ab5-3439-4317-9e03-08dc30852e69",
+      "name": "General",
+      "strength": null,
+      "url": "https://cdn.higgsfield.ai/soul-v2-style/f33d85f2-6521-4fa8-8e8f-894cfbdee578.webp"
+    },
+    "style_id": "3db34ab5-3439-4317-9e03-08dc30852e69",
+    "style_strength": null,
+    "use_relax": false,
+    "use_sage_attention": false,
+    "width": 1536
+  },
+  "result_url": null,
+  "status": "in_progress"
+}
