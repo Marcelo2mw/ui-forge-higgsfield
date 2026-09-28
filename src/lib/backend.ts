@@ -194,6 +194,9 @@ export const api = {
   runsDir: () => invoke<string>("runs_dir"),
   exportImages: (runId: string, cellIds: string[], dest: string) =>
     invoke<number>("export_images", { runId, cellIds, dest }),
+  /** Salva a imagem + o texto de handoff numa pasta; devolve o caminho do texto. */
+  exportHandoff: (runId: string, cellId: string, dest: string, imageName: string, textName: string, text: string) =>
+    invoke<string>("export_handoff", { runId, cellId, dest, imageName, textName, text }),
   credentialStatus: () => invoke<CredentialStatus>("credential_status"),
   setApiCredentials: (keyId: string, keySecret: string) =>
     invoke<CredentialStatus>("set_api_credentials", { keyId, keySecret }),

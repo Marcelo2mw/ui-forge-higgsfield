@@ -41,7 +41,7 @@ export function StylePicker() {
               {!s.calibrated && <span className="mt-1 size-1.5 shrink-0 rounded-full bg-amber-400" />}
             </div>
             {on && (
-              <span className="absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+              <span className="absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <Check className="size-3" />
               </span>
             )}

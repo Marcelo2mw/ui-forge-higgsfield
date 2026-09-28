@@ -96,6 +96,47 @@ describe("buildPrompt", () => {
   });
 });
 
+describe("tipografia", () => {
+  it("no automático usa o par de fontes do estilo", () => {
+    expect(buildPrompt(base, findStyle("claymorphism")!)).toContain(
+      "Typography: friendly rounded sans-serif with soft terminals (similar to Nunito).",
+    );
+    expect(buildPrompt({ ...base, fontPairing: "auto" }, findStyle("neubrutalism")!)).toContain("(similar to Archivo Black and Archivo)");
+  });
+
+  it("a escolha do usuário vale para todos os estilos", () => {
+    const p = buildPrompt({ ...base, fontPairing: "technical" }, findStyle("claymorphism")!);
+    expect(p).toContain("(similar to Space Grotesk, IBM Plex Sans and JetBrains Mono)");
+    expect(p).not.toContain("Nunito");
+  });
+
+  it("nenhum estilo traz tipografia própria no trecho (evita conflito com a escolha)", () => {
+    for (const s of STYLES) expect(s.fragment, s.id).not.toMatch(/typography|font/i);
+  });
+
+  it("com a frase de tipografia, os prompts padrão ainda cabem no limite do Ideogram na API (2048)", () => {
+    let longest = { len: 0, id: "" };
+    for (const seg of SEGMENTS) {
+      for (const screen of SCREENS) {
+        for (const device of ["desktop", "tablet", "mobile"] as const) {
+          for (const style of STYLES) {
+            for (const fontPairing of ["auto", "technical"] as const) {
+              const p = buildPrompt({ ...base, segment: seg, screen: screen.id, device, fontPairing }, style);
+              if (p.length > longest.len) longest = { len: p.length, id: `${seg.id}/${screen.id}/${device}/${style.id}/${fontPairing}` };
+            }
+          }
+        }
+      }
+    }
+    expect(longest.len, longest.id).toBeLessThanOrEqual(2048);
+  });
+
+  it("entra no plano a partir da configuração", () => {
+    const plan = buildPlan({ ...DEFAULT_CONFIG, styleIds: ["glass"], fontPairing: "editorial" }, "cli");
+    expect(plan.cells[0].params.prompt).toContain("similar to Fraunces and Inter");
+  });
+});
+
 describe("colorName", () => {
   it("dá nomes em inglês às cores comuns", () => {
     expect(colorName("#E11D74")).toBe("raspberry pink");

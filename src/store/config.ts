@@ -13,6 +13,7 @@ export const DEFAULT_CONFIG: ForgeConfig = {
   customScreen: "",
   styleIds: ["glass", "neumorphism", "claymorphism", "softui", "flat"],
   theme: "light",
+  fontPairing: "auto",
   accent: "#E11D74",
   palette: [],
   paletteThumb: null,

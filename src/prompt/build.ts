@@ -1,5 +1,6 @@
 import type {
   DeviceId,
+  FontPairingId,
   Lang,
   PresentationId,
   ScreenId,
@@ -8,16 +9,18 @@ import type {
   StylePreset,
   ThemeMode,
 } from "@/domain/types";
+import { resolveFontPairing, typographySentence } from "@/presets/fonts";
 import { ratioFor } from "@/presets/options";
 import { colorName, normalizeHex } from "./colors";
 
 /**
  * Monta o prompt de uma célula (um estilo). A estrutura segue o que foi validado no estudo
- * de calibração: assunto → apresentação → layout → estilo → tema → idioma/qualidade.
+ * de calibração: assunto → apresentação → layout → estilo → tipografia → tema → idioma/qualidade.
  * As instruções ficam em inglês; o texto que aparece na tela fica no idioma escolhido.
  */
 
-export const PROMPT_TEMPLATE_VERSION = 1;
+/** 2: frase de tipografia (par de fontes) no lugar do "clean sans-serif typography" genérico. */
+export const PROMPT_TEMPLATE_VERSION = 2;
 
 export interface PromptContext {
   /** Segmento pronto; `undefined` quando o usuário descreveu um negócio próprio. */
@@ -30,6 +33,8 @@ export interface PromptContext {
   device: DeviceId;
   presentation: PresentationId;
   theme: ThemeMode;
+  /** Par de fontes; ausente ou "auto" = o do estilo. */
+  fontPairing?: FontPairingId | "auto";
   accent: string;
   /** Cores extras da marca (além da cor de destaque). */
   palette?: string[];
@@ -38,7 +43,8 @@ export interface PromptContext {
   extra: string;
 }
 
-const WORDS: Record<Lang, Record<string, string>> = {
+/** Textos fixos que aparecem na tela gerada (o handoff cita os mesmos). */
+export const WORDS: Record<Lang, Record<string, string>> = {
   "pt-BR": {
     search: "Buscar...",
     newItem: "Novo",
@@ -95,8 +101,9 @@ export function buildPrompt(ctx: PromptContext, style: StylePreset): string {
     presentation(ctx),
     layout(ctx),
     style.fragment,
+    typographySentence(resolveFontPairing(ctx.fontPairing, style)),
     themeBlock(theme, ctx.accent, ctx.device, ctx.palette ?? []),
-    `All interface text in ${WORDS[ctx.lang].language}, crisp and legible, realistic data. Polished modern product design, consistent spacing grid, clean sans-serif typography, pixel-perfect UI.`,
+    `All interface text in ${WORDS[ctx.lang].language}, crisp and legible, realistic data. Polished modern product design, consistent spacing grid, pixel-perfect UI.`,
   ];
   const extra = ctx.extra.trim();
   if (extra) parts.push(`Additional details: ${extra.replace(/[.\s]+$/, "")}.`);

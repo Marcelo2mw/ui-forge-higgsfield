@@ -5,9 +5,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import type { Lang } from "@/domain/types";
+import type { ForgeConfig, Lang } from "@/domain/types";
 import { useT, useUiLang } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { FONT_PAIRINGS, fontPairingLabel } from "@/presets/fonts";
 import { ACCENT_SWATCHES, DEVICES, PRESENTATIONS, SCREENS } from "@/presets/options";
 import { SEGMENTS } from "@/presets/segments";
 import { staleOverrides } from "@/domain/plan";
@@ -105,6 +106,22 @@ export function ConfigSidebar() {
           <Section title={t.accent}>
             <AccentPicker value={config.accent} onChange={(accent) => patch({ accent })} />
             <PaletteExtractor />
+          </Section>
+
+          <Section title={t.typography}>
+            <Select value={config.fontPairing} onValueChange={(v) => patch({ fontPairing: v as ForgeConfig["fontPairing"] })}>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">{t.fontAuto}</SelectItem>
+                {FONT_PAIRINGS.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {fontPairingLabel(f, lang)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Section>
 
           <Section title={t.device}>

@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight, Copy, FolderOpen, RotateCcw, Star, ZoomIn, ZoomOut } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { ChevronLeft, ChevronRight, CodeXml, Copy, FolderOpen, RotateCcw, Star, ZoomIn, ZoomOut } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { findStyle } from "@/presets/styles";
 import { findModel, labelFor } from "@/registry/models";
 import { rowKey } from "@/domain/plan";
+import { HandoffDialog } from "./HandoffDialog";
 import { variantLabel } from "./RunView";
 import { useApp } from "@/store/app";
 
@@ -22,16 +23,18 @@ export function Lightbox() {
   const done = useMemo(() => (run?.cells ?? []).filter((c) => c.status === "completed" && c.image), [run]);
   const index = done.findIndex((c) => c.cellId === lightbox);
   const cell = index >= 0 ? done[index] : undefined;
+  const [handoffOpen, setHandoffOpen] = useState(false);
 
   useEffect(() => {
-    if (!cell) return;
+    // Com o handoff aberto, as setas movem o cursor no texto, não trocam a imagem.
+    if (!cell || handoffOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") setLightbox(done[(index + 1) % done.length].cellId);
       if (e.key === "ArrowLeft") setLightbox(done[(index - 1 + done.length) % done.length].cellId);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cell, done, index, setLightbox]);
+  }, [cell, done, index, setLightbox, handoffOpen]);
 
   if (!run || !cell || !cell.image) return null;
   const style = findStyle(cell.styleId);
@@ -44,7 +47,7 @@ export function Lightbox() {
     <Dialog open onOpenChange={(o) => !o && setLightbox(null)}>
       <DialogContent className="flex h-[92vh] max-w-[96vw] gap-0 overflow-hidden p-0 sm:max-w-[96vw]" showCloseButton>
         <DialogTitle className="sr-only">{`${style?.label[lang]} · ${model ? labelFor(model, run.provider) : ""}`}</DialogTitle>
-        <div className="relative min-w-0 flex-1 bg-neutral-950">
+        <div className="relative min-w-0 flex-1 bg-stage">
           <TransformWrapper key={cell.cellId} minScale={0.5} maxScale={6} centerOnInit>
             {({ zoomIn, zoomOut }) => (
               <>
@@ -97,6 +100,10 @@ export function Lightbox() {
               {cell.remoteId}
             </dd>
           </dl>
+          <Button className="w-full" title={t.handoffHint} onClick={() => setHandoffOpen(true)}>
+            <CodeXml />
+            {t.handoff}
+          </Button>
           <div className="flex flex-wrap gap-1.5">
             <Button
               size="sm"
@@ -153,6 +160,7 @@ export function Lightbox() {
             </p>
           </div>
         </aside>
+        {handoffOpen && <HandoffDialog run={run} cell={cell} onClose={() => setHandoffOpen(false)} />}
       </DialogContent>
     </Dialog>
   );

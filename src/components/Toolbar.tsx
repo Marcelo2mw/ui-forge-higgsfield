@@ -1,6 +1,7 @@
-import { Anvil, History, Loader2, PanelBottom, Play, Settings2, Square, TriangleAlert, Wallet } from "lucide-react";
+import { History, Loader2, PanelBottom, Play, Settings2, Square, TriangleAlert, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import logo from "@/assets/logo.svg";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,6 +17,7 @@ import { findStyle } from "@/presets/styles";
 import { PROMPT_TEMPLATE_VERSION } from "@/prompt/build";
 import { useApp } from "@/store/app";
 import { useConfig } from "@/store/config";
+import { WindowControls } from "./WindowControls";
 
 const CONFIRM_ABOVE = 24;
 
@@ -86,19 +88,19 @@ export function Toolbar() {
   }
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b bg-background px-3">
-      <div className="flex w-74 items-center gap-2">
-        <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Anvil className="size-4" />
-        </div>
-        <div className="leading-tight">
-          <div className="text-sm font-semibold">UI Forge</div>
-          <div className="text-[10px] text-muted-foreground">{t.appTagline}</div>
+    // Também é a barra de título da janela: a área vazia arrasta, duplo clique maximiza (botões e campos ficam de fora).
+    <header data-tauri-drag-region="deep" className="titlebar flex h-12 shrink-0 items-center bg-background text-foreground">
+      {/* Mesma largura da sidebar, para a borda continuar a linha dela. */}
+      <div className="flex h-full w-80 shrink-0 items-center gap-2.5 border-r px-3">
+        <img src={logo} width={27} height={26} alt="" draggable={false} className="shrink-0" />
+        <div className="min-w-0 leading-tight">
+          <div className="text-sm font-semibold tracking-tight">UI Forge</div>
+          <div className="truncate text-[10px] text-muted-foreground">{t.appTagline}</div>
         </div>
       </div>
 
-      <div className="flex flex-1 items-center gap-2">
-        <div className="flex h-7 items-center gap-2 rounded-full border bg-muted/40 px-3 text-xs">
+      <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
+        <div className="flex h-7 items-center gap-2 rounded-full border bg-muted/60 px-3 text-xs">
           <span className="font-medium">{t.images(plan.cells.length)}</span>
           <span className="text-muted-foreground">·</span>
           <span className={cn("tabular-nums", estimate.loading && "text-muted-foreground")}>
@@ -109,7 +111,7 @@ export function Toolbar() {
         {plan.skipped.length > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 text-xs text-amber-600">
+              <span className="flex items-center gap-1 text-xs text-amber-300">
                 <TriangleAlert className="size-3.5" />
                 {plan.skipped.length}
               </span>
@@ -127,7 +129,7 @@ export function Toolbar() {
         {Object.keys(estimate.invalid).length > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 text-xs text-rose-600">
+              <span className="flex items-center gap-1 text-xs text-rose-300">
                 <TriangleAlert className="size-3.5" />
                 {t.errors.validation}
               </span>
@@ -139,43 +141,53 @@ export function Toolbar() {
         )}
       </div>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => setPanel("settings", true)}
-            className="flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs hover:bg-muted"
-          >
-            <Wallet className="size-3.5 text-muted-foreground" />
-            <span className="font-medium uppercase">{provider}</span>
-            <span className="tabular-nums text-muted-foreground">
-              {account?.credits != null ? formatCost(account.credits, "credits", lang) : account?.usd != null ? formatCost(account.usd, "usd", lang) : "—"}
-            </span>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{accountError ?? `${t.balance}${account?.email ? ` · ${account.email}` : ""}`}</TooltipContent>
-      </Tooltip>
+      <div className="flex items-center gap-1.5 pr-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setPanel("settings", true)}
+              className="mr-1.5 flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors hover:bg-muted"
+            >
+              <Wallet className="size-3.5 text-muted-foreground" />
+              <span className="font-medium uppercase">{provider}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {account?.credits != null ? formatCost(account.credits, "credits", lang) : account?.usd != null ? formatCost(account.usd, "usd", lang) : "—"}
+              </span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{accountError ?? `${t.balance}${account?.email ? ` · ${account.email}` : ""}`}</TooltipContent>
+        </Tooltip>
 
-      <Button variant={panels.log ? "secondary" : "ghost"} size="icon-sm" title={t.log} onClick={() => setPanel("log", !panels.log)}>
-        <PanelBottom />
-      </Button>
-      <Button variant="ghost" size="icon-sm" title={t.history} onClick={() => setPanel("history", true)}>
-        <History />
-      </Button>
-      <Button variant="ghost" size="icon-sm" title={t.settings} onClick={() => setPanel("settings", true)}>
-        <Settings2 />
-      </Button>
-
-      {running && (
-        <Button variant="outline" size="sm" onClick={() => run && api.stopRun(run.id).then(setRun).catch((e) => toast.error(asAppError(e).message))}>
-          <Square />
-          {t.stop}
+        <Button
+          variant={panels.log ? "secondary" : "ghost"}
+          size="icon-sm"
+          className={cn(!panels.log && "text-muted-foreground")}
+          title={t.log}
+          onClick={() => setPanel("log", !panels.log)}
+        >
+          <PanelBottom />
         </Button>
-      )}
-      <Button size="sm" className="min-w-24" disabled={starting || plan.cells.length === 0} onClick={onGenerate}>
-        {starting ? <Loader2 className="animate-spin" /> : <Play />}
-        {starting ? t.generating : t.generate}
-      </Button>
+        <Button variant="ghost" size="icon-sm" className="text-muted-foreground" title={t.history} onClick={() => setPanel("history", true)}>
+          <History />
+        </Button>
+        <Button variant="ghost" size="icon-sm" className="text-muted-foreground" title={t.settings} onClick={() => setPanel("settings", true)}>
+          <Settings2 />
+        </Button>
+
+        {running && (
+          <Button variant="outline" size="sm" className="ml-1.5" onClick={() => run && api.stopRun(run.id).then(setRun).catch((e) => toast.error(asAppError(e).message))}>
+            <Square />
+            {t.stop}
+          </Button>
+        )}
+        <Button size="sm" className="ml-1.5 min-w-24 font-semibold" disabled={starting || plan.cells.length === 0} onClick={onGenerate}>
+          {starting ? <Loader2 className="animate-spin" /> : <Play />}
+          {starting ? t.generating : t.generate}
+        </Button>
+      </div>
+
+      <WindowControls />
 
       <Dialog open={confirming !== null} onOpenChange={(o) => !o && setConfirming(null)}>
         <DialogContent className="sm:max-w-md">

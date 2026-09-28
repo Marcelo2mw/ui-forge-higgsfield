@@ -67,7 +67,7 @@ export function Pill({ tone = "neutral", children, title }: { tone?: "neutral" |
     good: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
     warn: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
     bad: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300",
-    info: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
+    info: "bg-primary/10 text-primary dark:bg-primary/20",
   };
   return (
     <span title={title} className={cn("inline-flex h-4 items-center rounded px-1 text-[10px] font-medium whitespace-nowrap", tones[tone])}>

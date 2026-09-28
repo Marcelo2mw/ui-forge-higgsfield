@@ -37,7 +37,7 @@ export function CompareDialog() {
               <figcaption className="text-xs font-medium">
                 {findStyle(c.styleId)?.label[lang]} · {findModel(c.modelId)?.label} · v{c.variation}
               </figcaption>
-              <div className="min-h-0 flex-1 overflow-hidden rounded-lg border bg-neutral-950">
+              <div className="min-h-0 flex-1 overflow-hidden rounded-lg border bg-stage">
                 <img src={fileSrc(c.image!.path)} alt="" className="size-full object-contain" />
               </div>
             </figure>

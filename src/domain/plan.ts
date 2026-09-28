@@ -29,6 +29,7 @@ export function promptContext(cfg: ForgeConfig): PromptContext {
     device: cfg.device,
     presentation: cfg.presentation,
     theme: cfg.theme,
+    fontPairing: cfg.fontPairing,
     accent: cfg.accent,
     palette: cfg.palette,
     lang: cfg.lang,

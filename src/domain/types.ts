@@ -10,6 +10,21 @@ export type PresentationId = "flat" | "browser" | "device";
 export type ThemeMode = "light" | "dark";
 export type QualityTier = "draft" | "final";
 export type ProviderId = "cli" | "api" | "mock";
+export type FontPairingId = "neutral" | "geometric" | "modern" | "rounded" | "editorial" | "technical" | "heavy";
+/** Stack do protótipo que a IA de código vai montar a partir da imagem. */
+export type HandoffStack = "html" | "react" | "existing";
+
+/** Par de fontes do Google Fonts: entra no prompt da imagem e no texto de handoff. */
+export interface FontPairing {
+  id: FontPairingId;
+  label: Localized;
+  heading: string;
+  body: string;
+  /** Fonte para números e códigos, quando o par tem uma. */
+  mono?: string;
+  /** Aparência das letras EM INGLÊS, para o modelo de imagem ("friendly rounded sans-serif"). */
+  look: string;
+}
 
 /** Conteúdo de um segmento num idioma. Tudo aqui aparece escrito na imagem. */
 export interface SegmentContent {
@@ -62,6 +77,10 @@ export interface StylePreset {
   swatch: string;
   /** Alguns estilos só fazem sentido num tema. */
   forcesTheme?: ThemeMode;
+  /** Tipografia usada quando a escolha é "automática". */
+  font: FontPairingId;
+  /** Regras de implementação (CSS) do estilo, para o texto de handoff. */
+  spec: Record<Lang, string[]>;
   /** Validado no estudo de calibração (2026-09-28). */
   calibrated: boolean;
 }
@@ -104,6 +123,8 @@ export interface ForgeConfig {
   customScreen: string;
   styleIds: string[];
   theme: ThemeMode;
+  /** Par de fontes; "auto" = o de cada estilo. */
+  fontPairing: FontPairingId | "auto";
   accent: string;
   /** Cores extras da marca (tiradas de uma imagem), além da cor de destaque. */
   palette: string[];

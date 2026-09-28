@@ -25,7 +25,16 @@ pub fn run() {
                     let _ = w.set_focus();
                 }
             }))
-            .plugin(tauri_plugin_window_state::Builder::default().build());
+            // Sem DECORATIONS: o estado salvo não pode trazer de volta a moldura nativa
+            // (a barra de título é desenhada pelo app; ver tauri.conf.json).
+            .plugin(
+                tauri_plugin_window_state::Builder::default()
+                    .with_state_flags(
+                        tauri_plugin_window_state::StateFlags::all()
+                            .difference(tauri_plugin_window_state::StateFlags::DECORATIONS),
+                    )
+                    .build(),
+            );
     }
 
     builder
@@ -56,6 +65,7 @@ pub fn run() {
             commands::reveal_path,
             commands::runs_dir,
             commands::export_images,
+            commands::export_handoff,
             commands::credential_status,
             commands::set_api_credentials,
             commands::clear_api_credentials,

@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -329,4 +329,70 @@ pub fn export_images(state: State<'_, AppState>, run_id: String, cell_ids: Vec<S
         count += 1;
     }
     Ok(count)
+}
+
+/// Pacote de handoff para a IA de código: a imagem escolhida + o texto, lado a lado numa pasta.
+/// Os nomes vêm do frontend (o texto cita o nome da imagem). Devolve o caminho do texto salvo.
+#[tauri::command]
+pub fn export_handoff(
+    state: State<'_, AppState>,
+    run_id: String,
+    cell_id: String,
+    dest: String,
+    image_name: String,
+    text_name: String,
+    text: String,
+) -> AppResult<String> {
+    let m = state.runs.load(&state.runs_dir, &run_id)?.snapshot();
+    let img = m
+        .cells
+        .iter()
+        .find(|c| c.spec.cell_id == cell_id)
+        .and_then(|c| c.image.as_ref())
+        .ok_or_else(|| AppError::new(ErrorKind::NotFound, "imagem não encontrada neste run"))?;
+    let path = write_handoff(Path::new(&img.path), Path::new(&dest), &image_name, &text_name, &text)?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// Copia a imagem e grava o texto em `dest`. Dos nomes, só vale o nome do arquivo:
+/// um caminho ("../x.md") perde as pastas, e nada é escrito fora de `dest`.
+fn write_handoff(image: &Path, dest: &Path, image_name: &str, text_name: &str, text: &str) -> AppResult<PathBuf> {
+    let file_name = |name: &str| {
+        Path::new(name)
+            .file_name()
+            .map(|n| dest.join(n))
+            .ok_or_else(|| AppError::new(ErrorKind::Validation, format!("nome de arquivo inválido: {name}")))
+    };
+    let (image_path, text_path) = (file_name(image_name)?, file_name(text_name)?);
+    std::fs::create_dir_all(dest)?;
+    std::fs::copy(image, image_path)?;
+    std::fs::write(&text_path, text)?;
+    Ok(text_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn handoff_writes_image_and_text_side_by_side() {
+        let dir = std::env::temp_dir().join(format!("ui-forge-handoff-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let image = dir.join("cell.png");
+        std::fs::write(&image, b"png").unwrap();
+        let dest = dir.join("pacote");
+
+        let text = write_handoff(&image, &dest, "design-reference.png", "design-prompt.md", "# Handoff").unwrap();
+        assert_eq!(text, dest.join("design-prompt.md"));
+        assert_eq!(std::fs::read(dest.join("design-reference.png")).unwrap(), b"png");
+        assert_eq!(std::fs::read_to_string(&text).unwrap(), "# Handoff");
+
+        // Nomes com caminho ficam só com o nome do arquivo: nada sai da pasta escolhida.
+        write_handoff(&image, &dest, "../fora.png", "sub/x.md", "t").unwrap();
+        assert!(dest.join("fora.png").exists() && dest.join("x.md").exists());
+        assert!(!dir.join("fora.png").exists());
+        assert!(write_handoff(&image, &dest, "..", "x.md", "t").is_err());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
