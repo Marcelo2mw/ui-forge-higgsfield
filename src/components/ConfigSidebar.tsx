@@ -1,4 +1,4 @@
-import { FileText, TriangleAlert } from "lucide-react";
+import { CircleDollarSign, FileText, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,6 +17,7 @@ import { isHexColor, normalizeHex } from "@/prompt/colors";
 import { ChipGroup, Section } from "./bits";
 import { ModelPicker } from "./ModelPicker";
 import { PaletteExtractor } from "./PaletteExtractor";
+import { PricingDialog } from "./PricingDialog";
 import { PromptDialog } from "./PromptDialog";
 import { StylePicker } from "./StylePicker";
 import { VariantsEditor } from "./VariantsEditor";
@@ -26,6 +27,7 @@ export function ConfigSidebar() {
   const lang = useUiLang();
   const { config, patch, setSegment } = useConfig();
   const [promptOpen, setPromptOpen] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
   const segment = SEGMENTS.find((s) => s.id === config.segmentId);
   const edited = Object.keys(config.promptOverrides).filter((id) => config.styleIds.includes(id)).length;
   const stale = staleOverrides(config).length;
@@ -175,7 +177,14 @@ export function ConfigSidebar() {
             )}
           </Button>
 
-          <Section title={t.models}>
+          <Section
+            title={t.models}
+            aside={
+              <Button size="icon-xs" variant="ghost" className="text-muted-foreground" title={t.pricingButton} aria-label={t.pricingButton} onClick={() => setPricingOpen(true)}>
+                <CircleDollarSign />
+              </Button>
+            }
+          >
             <ModelPicker />
           </Section>
 
@@ -202,6 +211,7 @@ export function ConfigSidebar() {
         </div>
       </ScrollArea>
       <PromptDialog open={promptOpen} onOpenChange={setPromptOpen} />
+      <PricingDialog open={pricingOpen} onOpenChange={setPricingOpen} />
     </aside>
   );
 }

@@ -1,6 +1,6 @@
 //! Credenciais da Higgsfield API. Ficam no cofre do sistema (nunca no settings.json e nunca
-//! são enviadas para o webview). `HF_API_KEY_ID` / `HF_API_KEY_SECRET` no ambiente servem de
-//! alternativa para desenvolvimento.
+//! são enviadas para o webview). No ambiente, para desenvolvimento: `HF_CREDENTIALS` ou `HF_KEY`
+//! (formato `key-id:key-secret`, como nos SDKs oficiais) ou `HF_API_KEY_ID` + `HF_API_KEY_SECRET`.
 
 use serde::{Deserialize, Serialize};
 
@@ -44,10 +44,61 @@ pub struct CredentialStatus {
     pub key_id_masked: Option<String>,
 }
 
+/// Chave como o console da Higgsfield entrega no campo "Higgsfield API Key": uma string só,
+/// `key-id:key-secret`. Tolera o que costuma vir junto na colagem: aspas, `Key ` na frente,
+/// `HF_CREDENTIALS=`, quebras de linha e a chave colada duas vezes. Quando recusa, descreve a
+/// estrutura (tamanho e quantidade de ":") sem nunca repetir o conteúdo.
+pub fn parse_key(raw: &str) -> AppResult<ApiCredentials> {
+    let mut s = raw.trim();
+    // `NOME=valor` de um .env (o nome não tem ":", o que não confunde com um secret terminado em "=").
+    if let Some((name, value)) = s.split_once('=') {
+        if !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            s = value.trim();
+        }
+    }
+    s = s.trim_matches(|c| c == '"' || c == '\'').trim();
+    if let Some(rest) = s.strip_prefix("Key ").or_else(|| s.strip_prefix("key ")) {
+        s = rest.trim();
+    }
+    // A chave não tem espaços: um espaço ou quebra de linha no meio vem da cópia.
+    let mut key: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+    // O campo é de senha e esconde o que já estava nele: colar de novo duplica a chave.
+    let half = key.len() / 2;
+    if key.len() % 2 == 0 && key.is_char_boundary(half) && key[..half] == key[half..] && key[..half].contains(':') {
+        key.truncate(half);
+    }
+
+    let colons = key.matches(':').count();
+    let chars = key.chars().count();
+    let fail = |msg: String| Err(AppError::new(ErrorKind::Validation, msg));
+    if colons == 0 {
+        return fail(format!(
+            "A chave colada tem uma parte só ({chars} caracteres, nenhum \":\"). A Higgsfield API precisa do Key ID e do \
+             Secret juntos, no formato key-id:key-secret: copie pelo botão de copiar do campo \"Higgsfield API Key\" no console."
+        ));
+    }
+    if colons > 1 {
+        return fail(format!(
+            "A chave colada tem {colons} \":\" ({chars} caracteres), mas deveria ter só um, entre o Key ID e o Secret. \
+             Parece que foi colada mais de uma vez: cole só uma vez no campo vazio."
+        ));
+    }
+    let (id, secret) = key.split_once(':').expect("tem exatamente um ':'");
+    if id.is_empty() || secret.is_empty() {
+        return fail(format!(
+            "Falta {} antes ou depois do \":\" ({chars} caracteres). O formato é key-id:key-secret.",
+            if id.is_empty() { "o Key ID" } else { "o Secret" }
+        ));
+    }
+    Ok(ApiCredentials { key_id: id.into(), key_secret: secret.into() })
+}
+
 fn from_env() -> Option<ApiCredentials> {
-    let key_id = std::env::var("HF_API_KEY_ID").ok().filter(|s| !s.trim().is_empty())?;
-    let key_secret = std::env::var("HF_API_KEY_SECRET").ok().filter(|s| !s.trim().is_empty())?;
-    Some(ApiCredentials { key_id, key_secret })
+    let var = |k: &str| std::env::var(k).ok().filter(|s| !s.trim().is_empty());
+    if let (Some(key_id), Some(key_secret)) = (var("HF_API_KEY_ID"), var("HF_API_KEY_SECRET")) {
+        return Some(ApiCredentials { key_id, key_secret });
+    }
+    ["HF_CREDENTIALS", "HF_KEY"].iter().find_map(|k| var(k)).and_then(|v| parse_key(&v).ok())
 }
 
 #[cfg(any(windows, target_os = "macos"))]
@@ -97,7 +148,7 @@ pub fn save(creds: &ApiCredentials) -> AppResult<()> {
 pub fn save(_creds: &ApiCredentials) -> AppResult<()> {
     Err(AppError::new(
         ErrorKind::Validation,
-        "cofre de credenciais indisponível neste sistema; use as variáveis HF_API_KEY_ID e HF_API_KEY_SECRET",
+        "cofre de credenciais indisponível neste sistema; use a variável HF_CREDENTIALS (key-id:key-secret)",
     ))
 }
 
@@ -118,7 +169,7 @@ pub fn require() -> AppResult<ApiCredentials> {
     load()?.map(|(c, _)| c).ok_or_else(|| {
         AppError::new(
             ErrorKind::Auth,
-            "Chave da API não configurada. Abra Configurações e cole o Key ID e o Key Secret do console.higgsfield.ai.",
+            "Chave da API não configurada. Abra Configurações e cole a chave do console.higgsfield.ai (key-id:key-secret).",
         )
     })
 }
@@ -131,6 +182,41 @@ mod tests {
     fn mask_hides_the_middle() {
         assert_eq!(mask("abcd1234efgh5678"), "abcd…5678");
         assert_eq!(mask("abc"), "****");
+    }
+
+    #[test]
+    fn parses_the_key_as_the_console_shows_it() {
+        let ok = |raw: &str| {
+            let c = parse_key(raw).unwrap();
+            (c.key_id, c.key_secret)
+        };
+        let expected = ("id-123".to_string(), "s3cr3t".to_string());
+        assert_eq!(ok("id-123:s3cr3t"), expected);
+        assert_eq!(ok("  id-123:s3cr3t \n"), expected);
+        assert_eq!(ok("\"id-123:s3cr3t\""), expected);
+        assert_eq!(ok("Key id-123:s3cr3t"), expected);
+        assert_eq!(ok("HF_CREDENTIALS=\"id-123:s3cr3t\""), expected);
+        // Secret em base64 pode terminar em "=": não é confundido com NOME=valor.
+        assert_eq!(ok("id-123:abc=="), ("id-123".to_string(), "abc==".to_string()));
+        // Quebra de linha no meio (vinda da cópia) e a chave colada duas vezes seguidas.
+        assert_eq!(ok("id-123:s3cr\n3t"), expected);
+        assert_eq!(ok("id-123:s3cr3tid-123:s3cr3t"), expected);
+    }
+
+    #[test]
+    fn rejects_keys_in_the_wrong_format() {
+        for raw in ["", "so-o-id", ":s3cr3t", "id-123:", "id-123:s3cr3t:outra:coisa"] {
+            assert!(parse_key(raw).is_err(), "{raw:?} deveria ser recusada");
+        }
+    }
+
+    #[test]
+    fn the_error_describes_the_key_without_showing_it() {
+        let msg = parse_key("abcdef0123456789").unwrap_err().message;
+        assert!(msg.contains("16 caracteres") && msg.contains("nenhum"), "{msg}");
+        assert!(!msg.contains("abcdef"));
+        let msg = parse_key("id-123:s3cr3t:x").unwrap_err().message;
+        assert!(msg.contains("2 \":\""), "{msg}");
     }
 
     #[test]

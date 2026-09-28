@@ -251,14 +251,13 @@ function UpdatesSection() {
   );
 }
 
-/** Key ID + Secret da API: vão direto para o cofre do sistema e nunca voltam para a tela. */
+/** Chave da API (`key-id:key-secret`, uma string só como o console mostra): vai direto para o cofre e nunca volta para a tela. */
 function ApiKeySection() {
   const t = useT();
   const lang = useUiLang();
   const refreshAccount = useApp((s) => s.refreshAccount);
   const [status, setStatus] = useState<CredentialStatus | null>(null);
-  const [keyId, setKeyId] = useState("");
-  const [keySecret, setKeySecret] = useState("");
+  const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -281,33 +280,25 @@ function ApiKeySection() {
   return (
     <Section title={t.apiKey}>
       <p className="text-[11px] text-muted-foreground">{t.apiKeyHint}</p>
-      <div className="grid grid-cols-2 gap-2">
-        <Input
-          type="password"
-          autoComplete="off"
-          className="h-8 font-mono text-xs"
-          placeholder={t.keyId}
-          value={keyId}
-          onChange={(e) => setKeyId(e.target.value)}
-        />
-        <Input
-          type="password"
-          autoComplete="off"
-          className="h-8 font-mono text-xs"
-          placeholder={t.keySecret}
-          value={keySecret}
-          onChange={(e) => setKeySecret(e.target.value)}
-        />
-      </div>
+      <Input
+        type="password"
+        autoComplete="off"
+        spellCheck={false}
+        className="h-8 font-mono text-xs"
+        placeholder={t.keyPlaceholder}
+        value={key}
+        onChange={(e) => setKey(e.target.value)}
+      />
       <div className="flex items-center gap-2">
         <Button
           size="sm"
-          disabled={busy || !keyId.trim() || !keySecret.trim()}
+          disabled={busy || !key.trim()}
           onClick={() =>
             run(async () => {
-              setStatus(await api.setApiCredentials(keyId, keySecret));
-              setKeyId("");
-              setKeySecret("");
+              // Limpa sempre: o campo esconde o texto, e colar de novo por cima duplicaria a chave.
+              const pasted = key;
+              setKey("");
+              setStatus(await api.setApiCredentials(pasted));
               setResult({ ok: true, text: t.keySaved });
               await refreshAccount();
             })

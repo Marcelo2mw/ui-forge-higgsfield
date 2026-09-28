@@ -29,8 +29,8 @@ Também tem a versão **`.msi`** na página da release, para quem instala por po
 ## Como usar
 
 1. **Instale** o app (acima).
-2. **Crie sua chave** em [console.higgsfield.ai](https://console.higgsfield.ai) → *API Keys*. Anote o **Key ID** e o **Key Secret** (o secret só aparece uma vez).
-3. Abra o UI Forge → **Configurações** → cole o Key ID e o Key Secret → **Testar**.
+2. **Crie sua chave** em [console.higgsfield.ai](https://console.higgsfield.ai) → *API Keys* e copie a chave inteira. Ela vem numa string só, no formato `key-id:key-secret`, e só aparece uma vez.
+3. Abra o UI Forge → **Configurações** → cole a chave em **Chave da Higgsfield API** → **Salvar chave** → **Testar**.
 4. Na barra lateral, escolha segmento, tela, estilos, tipografia e modelos. A estimativa de custo aparece no topo. Clique em **Gerar**.
 5. Abra a imagem que você mais gostou e clique em **Texto para código** (veja abaixo).
 
@@ -71,7 +71,16 @@ Os prompts dos cinco primeiros estilos foram calibrados gerando o mesmo dashboar
 | Recraft V4.1 | bom | texto correto, estilo menos consistente |
 | FLUX.2, Kling O1, Soul 2 | fraco para UI | texto embaralhado (o Soul 2 é um modelo fotográfico) |
 
-No modo API, só aparecem os modelos com endpoint confirmado no catálogo da API.
+No modo API, os modelos que não estão no catálogo da API (GPT Image 2.5, Nano Banana Pro, Seedream, FLUX.2 e Kling) aparecem desabilitados; eles funcionam no modo CLI. Os que só existem na API foram testados pela própria API (dashboard, texto em português, em glassmorfismo, claymorfismo e flat):
+
+| Modelo (só na API) | Resultado para UI | Observação |
+|---|---|---|
+| Marketing Studio Image 2.5 Flare | ótimo | o mais rápido (~20 s); cobrado por uso (tokens) |
+| Marketing Studio Image 2.5 Sunburst | ótimo | no nível do Flare; cobrado por uso (tokens) |
+| Qwen Image 3 | bom | tabelas certas; às vezes embaralha legendas; lento (~2 min) |
+| Ideogram 4.0 | fraco para UI | visual bonito, mas embaralha menus e tabelas |
+| Recraft V4.1 Utility, Pro e Utility Pro | fraco para UI | eixos, meses e tabelas embaralhados; os Pro custam US$ 0,21 a imagem |
+| Soul Standard | fraco para UI | modelo fotográfico, texto ilegível | O botão **$** ao lado de "Modelos" mostra quanto custam 1.000 imagens de cada modelo na API e no CLI.
 
 ## Segurança
 
@@ -95,7 +104,7 @@ cd src-tauri && cargo test   # testes do backend (Rust)
 pnpm tauri build      # gera o instalador em src-tauri/target/release/bundle/
 ```
 
-Para desenvolver sem gastar nada, use o modo **Simulação** nas configurações. Para usar a API sem o cofre do sistema, defina `HF_API_KEY_ID` e `HF_API_KEY_SECRET` no ambiente.
+Para desenvolver sem gastar nada, use o modo **Simulação** nas configurações. Para usar a API sem o cofre do sistema, defina `HF_CREDENTIALS` no ambiente, no formato `key-id:key-secret` (o mesmo dos SDKs oficiais).
 
 Estrutura:
 
@@ -116,7 +125,7 @@ UI Forge generates business-software screens (dashboard, schedule, list, form, c
 
 1. **[Download the Windows installer](https://github.com/Marcelo2mw/ui-forge-higgsfield/releases/latest/download/UI-Forge-Setup-x64.exe)** (or see all [Releases](https://github.com/Marcelo2mw/ui-forge-higgsfield/releases)). The installer is not code-signed, so Windows SmartScreen will warn you: click **More info** → **Run anyway**. It installs per user, without admin rights. When a new version comes out, a **"New version"** notice shows up in the title bar; updating is optional.
 2. Create an API key at [console.higgsfield.ai](https://console.higgsfield.ai) → *API Keys*.
-3. Open UI Forge → **Settings** → paste your Key ID and Key Secret → **Test**.
+3. Open UI Forge → **Settings** → paste the whole key as the console shows it (`key-id:key-secret`) → **Save key** → **Test**.
 4. Pick a business, a screen, styles, typography and models, then click **Generate**.
 5. Open your favorite image and click **Text for code**: it writes a handoff (design style with CSS rules, tokens, fonts, screen structure, behavior and delivery stack) to give Claude Code or any coding AI together with the image, so it can build a working HTML/CSS/JS or React prototype.
 

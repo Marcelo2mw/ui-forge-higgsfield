@@ -11,6 +11,8 @@ function costKey(cell: JobSpec): string {
 interface EstimateState {
   key: string;
   costs: Record<string, number>;
+  /** Por chave de custo: descrição do preço dos modelos cobrados por uso. */
+  byUsage: Record<string, string>;
   errors: Estimate["errors"];
   unit: string;
   loading: boolean;
@@ -24,6 +26,8 @@ export interface EstimateResult {
   error: string | null;
   /** Modelos cujos parâmetros o provider recusou (com a mensagem). */
   invalid: Record<string, string>;
+  /** Modelos cobrados pelo uso depois de gerar (tokens): ficam fora do total, com a descrição do preço. */
+  byUsage: Record<string, string>;
   costOf: (cell: JobSpec) => number | undefined;
 }
 
@@ -35,7 +39,7 @@ export function useEstimate(cells: JobSpec[]): EstimateResult {
     return map;
   }, [cells]);
   const key = `${provider}|${[...reps.keys()].sort().join("§")}`;
-  const [state, setState] = useState<EstimateState>({ key: "", costs: {}, errors: [], unit: "credits", loading: false, error: null });
+  const [state, setState] = useState<EstimateState>({ key: "", costs: {}, byUsage: {}, errors: [], unit: "credits", loading: false, error: null });
 
   useEffect(() => {
     if (!provider || reps.size === 0) return;
@@ -47,13 +51,16 @@ export function useEstimate(cells: JobSpec[]): EstimateResult {
         const res = await api.estimateRun(list.map(([, c]) => c));
         if (!alive) return;
         const costs: Record<string, number> = {};
+        const byUsage: Record<string, string> = {};
         for (const [k, c] of list) {
           const v = res.perCell[c.cellId];
           if (v !== undefined) costs[k] = v;
+          const usage = res.byUsage?.[c.cellId];
+          if (usage !== undefined) byUsage[k] = usage;
         }
-        setState({ key, costs, errors: res.errors, unit: res.unit, loading: false, error: null });
+        setState({ key, costs, byUsage, errors: res.errors, unit: res.unit, loading: false, error: null });
       } catch (e) {
-        if (alive) setState({ key, costs: {}, errors: [], unit: "credits", loading: false, error: asAppError(e).message });
+        if (alive) setState({ key, costs: {}, byUsage: {}, errors: [], unit: "credits", loading: false, error: asAppError(e).message });
       }
     }, 450);
     return () => {
@@ -65,14 +72,23 @@ export function useEstimate(cells: JobSpec[]): EstimateResult {
   }, [key]);
 
   if (cells.length === 0) {
-    return { total: 0, unit: state.unit, loading: false, error: null, invalid: {}, costOf: () => undefined };
+    return { total: 0, unit: state.unit, loading: false, error: null, invalid: {}, byUsage: {}, costOf: () => undefined };
   }
   const fresh = state.key === key;
   const costOf = (cell: JobSpec) => (fresh ? state.costs[costKey(cell)] : undefined);
-  const known = cells.map(costOf);
-  const total = fresh && known.every((v) => v !== undefined) ? known.reduce<number>((s, v) => s + (v ?? 0), 0) : null;
+  const usageOf = (cell: JobSpec) => (fresh ? state.byUsage[costKey(cell)] : undefined);
+  // O total soma os preços fixos; quem é cobrado por uso não tem valor antes de gerar e fica de fora.
+  const complete = fresh && cells.every((c) => costOf(c) !== undefined || usageOf(c) !== undefined);
+  const total = complete ? cells.reduce((s, c) => s + (costOf(c) ?? 0), 0) : null;
   const invalid: Record<string, string> = {};
-  if (fresh) for (const e of state.errors) invalid[e.modelId] = e.message;
+  const byUsage: Record<string, string> = {};
+  if (fresh) {
+    for (const e of state.errors) invalid[e.modelId] = e.message;
+    for (const c of cells) {
+      const usage = usageOf(c);
+      if (usage !== undefined) byUsage[c.modelId] = usage;
+    }
+  }
 
-  return { total, unit: state.unit, loading: state.loading || !fresh, error: fresh ? state.error : null, invalid, costOf };
+  return { total, unit: state.unit, loading: state.loading || !fresh, error: fresh ? state.error : null, invalid, byUsage, costOf };
 }

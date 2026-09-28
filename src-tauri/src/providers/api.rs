@@ -5,7 +5,7 @@
 use reqwest::{Method, StatusCode};
 use serde_json::{json, Map, Value};
 
-use super::{AccountInfo, JobSpec, RemoteState, Submitted};
+use super::{AccountInfo, JobSpec, Price, RemoteState, Submitted};
 use crate::error::{AppError, AppResult, ErrorKind};
 use crate::providers::cli_parse::{clip, map_status};
 use crate::secrets::ApiCredentials;
@@ -62,10 +62,9 @@ impl ApiProvider {
         }
     }
 
-    pub async fn estimate(&self, endpoint: &str, params: &Map<String, Value>) -> AppResult<f64> {
+    pub async fn estimate(&self, endpoint: &str, params: &Map<String, Value>) -> AppResult<Price> {
         let (_, v) = self.send(Method::POST, &format!("estimate/{endpoint}"), Some(&Value::Object(params.clone()))).await?;
-        find_number(&v, &["usd", "price_usd", "cost_usd", "amount_usd"])
-            .ok_or_else(|| AppError::internal(format!("o /estimate não trouxe o preço em US$: {}", clip(&v.to_string(), 300))))
+        read_price(&v)
     }
 
     pub async fn submit(&self, spec: &JobSpec) -> AppResult<Submitted> {
@@ -93,8 +92,22 @@ impl ApiProvider {
     pub async fn check_key(&self) -> AppResult<f64> {
         let mut params = Map::new();
         params.insert("prompt".into(), Value::String("UI Forge key check".into()));
-        self.estimate("higgsfield-ai/soul/v2/standard", &params).await
+        match self.estimate("higgsfield-ai/soul/v2/standard", &params).await? {
+            Price::Fixed(usd) => Ok(usd),
+            Price::ByUsage(desc) => Err(AppError::internal(format!("o Soul 2 voltou com preço por uso: {desc}"))),
+        }
     }
+}
+
+/// Preço fixo (`usd`, às vezes como texto) ou, nos modelos cobrados por tokens, só a descrição.
+fn read_price(v: &Value) -> AppResult<Price> {
+    if let Some(usd) = find_number(v, &["usd", "price_usd", "cost_usd", "amount_usd"]) {
+        return Ok(Price::Fixed(usd));
+    }
+    if let Some(desc) = v.get("pricing_description").and_then(Value::as_str) {
+        return Ok(Price::ByUsage(desc.to_string()));
+    }
+    Err(AppError::internal(format!("o /estimate não trouxe o preço em US$: {}", clip(&v.to_string(), 2000))))
 }
 
 pub fn parse_status(v: Value) -> RemoteState {
@@ -119,11 +132,20 @@ pub fn parse_status(v: Value) -> RemoteState {
     }
 }
 
+/// Número ou texto numérico: o /estimate devolve os valores como texto (`"usd": "0.004"`).
+fn as_number(v: &Value) -> Option<f64> {
+    match v {
+        Value::Number(n) => n.as_f64(),
+        Value::String(s) => s.trim().parse().ok(),
+        _ => None,
+    }
+}
+
 fn find_number(v: &Value, keys: &[&str]) -> Option<f64> {
     match v {
         Value::Object(map) => {
             for k in keys {
-                if let Some(n) = map.get(*k).and_then(Value::as_f64) {
+                if let Some(n) = map.get(*k).and_then(as_number) {
                     return Some(n);
                 }
             }
@@ -193,6 +215,23 @@ mod tests {
         assert_eq!(find_number(&json!({ "credits": 3, "usd": 0.0032 }), &["usd"]), Some(0.0032));
         assert_eq!(find_number(&json!({ "estimate": { "credits": 3, "usd": 0.5 } }), &["usd"]), Some(0.5));
         assert_eq!(find_number(&json!({ "credits": 3 }), &["usd"]), None);
+    }
+
+    #[test]
+    fn estimate_values_come_as_text() {
+        // Resposta real do POST /estimate/higgsfield-ai/soul/v2/standard.
+        let real = json!({ "credits": "0.050", "discount": null, "type": "estimate", "usd": "0.004" });
+        assert_eq!(find_number(&real, &["usd"]), Some(0.004));
+        assert_eq!(find_number(&json!({ "usd": "n/a" }), &["usd"]), None);
+    }
+
+    #[test]
+    fn token_priced_models_are_billed_by_usage() {
+        // Resposta real do /estimate do Marketing Studio Image 2.5 Flare (cobrança por tokens).
+        let flare = json!({ "pricing_description": "Per 1M tokens: text input $5, image output $30.", "type": "description" });
+        assert_eq!(read_price(&flare).unwrap(), Price::ByUsage("Per 1M tokens: text input $5, image output $30.".into()));
+        assert_eq!(read_price(&json!({ "usd": "0.004" })).unwrap(), Price::Fixed(0.004));
+        assert!(read_price(&json!({ "type": "estimate" })).is_err());
     }
 
     #[test]

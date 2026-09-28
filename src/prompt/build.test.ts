@@ -161,7 +161,11 @@ describe("buildPlan", () => {
   });
 
   it("no provider da API usa os endpoints da documentação e pula o que não existe lá", () => {
-    const cfg = { ...DEFAULT_CONFIG, styleIds: ["glass"], modelIds: ["soul-2", "gpt-image-2.5", "nano-banana-pro", "ideogram-4"] };
+    const cfg = {
+      ...DEFAULT_CONFIG,
+      styleIds: ["glass"],
+      modelIds: ["soul-2", "gpt-image-2.5", "marketing-studio-image-flare", "nano-banana-pro", "ideogram-4"],
+    };
     const plan = buildPlan(cfg, "api");
     expect(plan.cells.map((c) => c.target)).toEqual([
       "higgsfield-ai/soul/v2/standard",
@@ -170,7 +174,16 @@ describe("buildPlan", () => {
     ]);
     expect(plan.cells[0].params.resolution).toBe("720p");
     expect(plan.cells[1].params).toMatchObject({ quality: "medium", resolution: "1k", enhance_prompt: false });
-    expect(plan.skipped).toEqual([{ modelId: "nano-banana-pro", reason: "not-on-api" }]);
+    // GPT Image 2.5 não está no catálogo da API: aparece desabilitado, como o Nano Banana.
+    expect(plan.skipped).toEqual([
+      { modelId: "gpt-image-2.5", reason: "not-on-api" },
+      { modelId: "nano-banana-pro", reason: "not-on-api" },
+    ]);
+  });
+
+  it("o Flare só existe na API", () => {
+    const plan = buildPlan({ ...DEFAULT_CONFIG, styleIds: ["glass"], modelIds: ["marketing-studio-image-flare"] }, "cli");
+    expect(plan.skipped).toEqual([{ modelId: "marketing-studio-image-flare", reason: "not-on-cli" }]);
   });
 
   it("modelos só da API ficam de fora no CLI", () => {
@@ -191,6 +204,22 @@ describe("buildPlan", () => {
     const cfg = { ...DEFAULT_CONFIG, styleIds: ["glass"], modelIds: ["recraft-v4.1"], accent: "#2563eb" };
     expect(buildPlan(cfg, "cli").cells[0].params.colors).toEqual(["#2563EB"]);
     expect(buildPlan(cfg, "api").cells[0].params.colors).toEqual([{ rgb: [37, 99, 235] }]);
+  });
+
+  it("os modos do Recraft e do Marketing Studio só da API vão para os endpoints certos", () => {
+    const ids = ["recraft-v4.1-utility", "recraft-v4.1-pro", "recraft-v4.1-utility-pro", "marketing-studio-image-sunburst", "soul-standard"];
+    const plan = buildPlan({ ...DEFAULT_CONFIG, styleIds: ["glass"], modelIds: ids, accent: "#2563eb" }, "api");
+    expect(plan.cells.map((c) => c.target)).toEqual([
+      "recraft/v4.1/utility/text-to-image",
+      "recraft/v4.1/pro/text-to-image",
+      "recraft/v4.1/utility/pro/text-to-image",
+      "marketing-studio/image/sunburst",
+      "higgsfield-ai/soul/standard",
+    ]);
+    // Os Pro só aceitam 2k; todos os Recraft recebem a paleta; o Soul 1 não reescreve o prompt.
+    expect(plan.cells[1].params).toMatchObject({ resolution: "2k", colors: [{ rgb: [37, 99, 235] }] });
+    expect(plan.cells[4].params).toMatchObject({ enhance_prompt: false });
+    expect(buildPlan({ ...DEFAULT_CONFIG, styleIds: ["glass"], modelIds: ids }, "cli").cells).toHaveLength(0);
   });
 
   it("prompt editado à mão substitui o gerado", () => {

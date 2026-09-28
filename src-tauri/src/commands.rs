@@ -9,9 +9,9 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::error::{AppError, AppResult, ErrorKind};
 use crate::jobs::{self, RunHandle};
-use crate::providers::{cli, AccountInfo, JobSpec};
+use crate::providers::{cli, AccountInfo, JobSpec, Price};
 use crate::secrets;
-use crate::settings::{Settings, SettingsPatch};
+use crate::settings::{ProviderKind, Settings, SettingsPatch};
 use crate::state::AppState;
 use crate::storage::{self, CellState, CellStatus, Manifest, RunStatus, RunSummary};
 use crate::updates;
@@ -58,6 +58,8 @@ pub struct Estimate {
     total: f64,
     unit: String,
     per_cell: BTreeMap<String, f64>,
+    /// Células cobradas pelo uso depois de gerar (tokens): a descrição do preço, sem valor fixo.
+    by_usage: BTreeMap<String, String>,
     errors: Vec<EstimateError>,
 }
 
@@ -72,9 +74,13 @@ pub struct EstimateError {
 
 /// Estima o custo de todas as células. Parâmetros iguais (fora o prompt) custam igual, então
 /// cada combinação é consultada uma vez só. A consulta também valida os parâmetros.
+/// `provider` força um modo (a tabela de preços consulta API e CLI); sem ele, vale o das configurações.
 #[tauri::command]
-pub async fn estimate_run(state: State<'_, AppState>, cells: Vec<JobSpec>) -> AppResult<Estimate> {
-    let provider = state.provider()?;
+pub async fn estimate_run(state: State<'_, AppState>, cells: Vec<JobSpec>, provider: Option<ProviderKind>) -> AppResult<Estimate> {
+    let provider = match provider {
+        Some(kind) => state.provider_for(kind)?,
+        None => state.provider()?,
+    };
     let mut groups: HashMap<String, Vec<&JobSpec>> = HashMap::new();
     for cell in &cells {
         let mut key_params: Map<String, Value> = cell.params.clone();
@@ -95,12 +101,16 @@ pub async fn estimate_run(state: State<'_, AppState>, cells: Vec<JobSpec>) -> Ap
     let results = futures_join(lookups).await;
 
     let mut per_cell = BTreeMap::new();
+    let mut by_usage = BTreeMap::new();
     let mut errors = Vec::new();
     for (group, result) in groups.iter().zip(results) {
         for cell in group {
             match &result {
-                Ok(cost) => {
+                Ok(Price::Fixed(cost)) => {
                     per_cell.insert(cell.cell_id.clone(), *cost);
+                }
+                Ok(Price::ByUsage(desc)) => {
+                    by_usage.insert(cell.cell_id.clone(), desc.clone());
                 }
                 Err(e) => errors.push(EstimateError {
                     cell_id: cell.cell_id.clone(),
@@ -111,7 +121,7 @@ pub async fn estimate_run(state: State<'_, AppState>, cells: Vec<JobSpec>) -> Ap
             }
         }
     }
-    Ok(Estimate { total: per_cell.values().sum(), unit: provider.unit().into(), per_cell, errors })
+    Ok(Estimate { total: per_cell.values().sum(), unit: provider.unit().into(), per_cell, by_usage, errors })
 }
 
 /// Executa as consultas em paralelo (o limite de processos fica no próprio provider).
@@ -281,14 +291,11 @@ pub fn credential_status() -> secrets::CredentialStatus {
     secrets::status()
 }
 
-/// Salva Key ID + Secret no cofre do sistema. O secret nunca volta para o webview.
+/// Salva a chave (`key-id:key-secret`, como o console mostra) no cofre do sistema.
+/// O secret nunca volta para o webview.
 #[tauri::command]
-pub fn set_api_credentials(key_id: String, key_secret: String) -> AppResult<secrets::CredentialStatus> {
-    let (key_id, key_secret) = (key_id.trim().to_string(), key_secret.trim().to_string());
-    if key_id.is_empty() || key_secret.is_empty() {
-        return Err(AppError::new(ErrorKind::Validation, "preencha o Key ID e o Key Secret"));
-    }
-    secrets::save(&secrets::ApiCredentials { key_id, key_secret })?;
+pub fn set_api_credentials(key: String) -> AppResult<secrets::CredentialStatus> {
+    secrets::save(&secrets::parse_key(&key)?)?;
     Ok(secrets::status())
 }
 
@@ -303,7 +310,17 @@ pub fn clear_api_credentials() -> AppResult<secrets::CredentialStatus> {
 pub async fn test_api_credentials(state: State<'_, AppState>) -> AppResult<f64> {
     let creds = secrets::require()?;
     let provider = crate::providers::api::ApiProvider::new(&state.settings().api_base_url, creds, state.http.clone());
-    provider.check_key().await
+    provider.check_key().await.map_err(|e| match e.kind {
+        ErrorKind::Auth => AppError::new(
+            ErrorKind::Auth,
+            format!(
+                "A Higgsfield recusou a chave ({}). Confira se colou a chave inteira, no formato key-id:key-secret, \
+                 e se ela continua ativa em console.higgsfield.ai → API Keys.",
+                e.message
+            ),
+        ),
+        _ => e,
+    })
 }
 
 /// Copia as imagens escolhidas para uma pasta, com nomes legíveis.

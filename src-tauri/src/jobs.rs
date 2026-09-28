@@ -427,15 +427,65 @@ async fn save_image(app: &AppHandle, run: &RunHandle, cell_id: &str, attempt: u3
             }
         }
     }
+    // A API não informa o tamanho: lê do cabeçalho do arquivo baixado.
+    let (width, height) = match (state.width, state.height) {
+        (Some(w), Some(h)) => (Some(w), Some(h)),
+        _ => image_size(&bytes).map_or((None, None), |(w, h)| (Some(w), Some(h))),
+    };
     Ok(CellImage {
         path: run.dir.join(&file).to_string_lossy().into_owned(),
         thumb_path: thumb_file.as_ref().map(|t| run.dir.join(t).to_string_lossy().into_owned()),
         file,
         thumb_file,
         result_url: state.result_url.clone(),
-        width: state.width,
-        height: state.height,
+        width,
+        height,
     })
+}
+
+/// Largura × altura lidas do cabeçalho de um PNG, JPEG ou WebP, sem decodificar a imagem.
+fn image_size(b: &[u8]) -> Option<(u32, u32)> {
+    let be16 = |i: usize| Some(u16::from_be_bytes(b.get(i..i + 2)?.try_into().ok()?) as u32);
+    let be32 = |i: usize| Some(u32::from_be_bytes(b.get(i..i + 4)?.try_into().ok()?));
+    let le16 = |i: usize| Some(u16::from_le_bytes(b.get(i..i + 2)?.try_into().ok()?) as u32);
+    let le24 = |i: usize| b.get(i..i + 3).map(|s| s[0] as u32 | (s[1] as u32) << 8 | (s[2] as u32) << 16);
+
+    if b.starts_with(b"\x89PNG\r\n\x1a\n") {
+        // Primeiro chunk é o IHDR: largura e altura logo depois do tipo.
+        return Some((be32(16)?, be32(20)?));
+    }
+    if b.starts_with(&[0xFF, 0xD8]) {
+        let mut i = 2;
+        while i + 9 < b.len() {
+            if b[i] != 0xFF {
+                i += 1;
+                continue;
+            }
+            let marker = b[i + 1];
+            if marker == 0xFF || marker == 0x01 || (0xD0..=0xD9).contains(&marker) {
+                i += if marker == 0xFF { 1 } else { 2 };
+                continue;
+            }
+            // SOF0..SOF15 (menos DHT, JPG e DAC): altura e largura depois da precisão.
+            if (0xC0..=0xCF).contains(&marker) && ![0xC4, 0xC8, 0xCC].contains(&marker) {
+                return Some((be16(i + 7)?, be16(i + 5)?));
+            }
+            i += 2 + be16(i + 2)? as usize;
+        }
+        return None;
+    }
+    if b.get(0..4) == Some(b"RIFF") && b.get(8..12) == Some(b"WEBP") {
+        return match b.get(12..16)? {
+            b"VP8 " => Some((le16(26)? & 0x3FFF, le16(28)? & 0x3FFF)),
+            b"VP8L" => {
+                let v = u32::from_le_bytes(b.get(21..25)?.try_into().ok()?);
+                Some(((v & 0x3FFF) + 1, ((v >> 14) & 0x3FFF) + 1))
+            }
+            b"VP8X" => Some((le24(24)? + 1, le24(27)? + 1)),
+            _ => None,
+        };
+    }
+    None
 }
 
 async fn download(app: &AppHandle, url: &str) -> AppResult<Vec<u8>> {
@@ -510,6 +560,27 @@ pub fn resume_all(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn image_size_reads_png_jpeg_and_webp_headers() {
+        let mut png = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR".to_vec();
+        png.extend(2560u32.to_be_bytes());
+        png.extend(1440u32.to_be_bytes());
+        png.extend([8, 6, 0, 0, 0]);
+        assert_eq!(image_size(&png), Some((2560, 1440)));
+
+        // SOI, um APP0 curto e o SOF0 (altura 720, largura 1280).
+        let jpeg = [
+            0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0x00, 0x00, 0xFF, 0xC0, 0x00, 0x11, 0x08, 0x02, 0xD0, 0x05, 0x00, 0x03, 0, 0, 0,
+        ];
+        assert_eq!(image_size(&jpeg), Some((1280, 720)));
+
+        let mut webp = b"RIFF\0\0\0\0WEBPVP8X\x0a\0\0\0\0\0\0\0".to_vec();
+        webp.extend([0xFF, 0x04, 0x00, 0xCF, 0x02, 0x00]); // 1280-1 e 720-1 em 24 bits little-endian
+        assert_eq!(image_size(&webp), Some((1280, 720)));
+
+        assert_eq!(image_size(b"not an image"), None);
+    }
 
     #[test]
     fn extension_comes_from_url_path() {

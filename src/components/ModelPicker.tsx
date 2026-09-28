@@ -8,7 +8,7 @@ import { useApp } from "@/store/app";
 import { useConfig } from "@/store/config";
 import { Pill } from "./bits";
 
-const FIT_TONE = { recommended: "good", good: "info", weak: "warn", unstable: "bad", untested: "neutral" } as const;
+export const FIT_TONE = { recommended: "good", good: "info", weak: "warn", unstable: "bad", untested: "neutral" } as const;
 const API_TONE = { yes: "good", unknown: "neutral", no: "bad" } as const;
 
 export function ModelPicker() {

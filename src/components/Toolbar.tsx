@@ -15,6 +15,7 @@ import { SCREENS } from "@/presets/options";
 import { findSegment } from "@/presets/segments";
 import { findStyle } from "@/presets/styles";
 import { PROMPT_TEMPLATE_VERSION } from "@/prompt/build";
+import { findModel, labelFor } from "@/registry/models";
 import { useApp } from "@/store/app";
 import { useConfig } from "@/store/config";
 import { UpdateBadge } from "./UpdateBadge";
@@ -35,8 +36,14 @@ export function Toolbar() {
   const [starting, setStarting] = useState(false);
   const running = run?.status === "running";
 
-  const costText =
+  // Modelos cobrados por uso (tokens) não têm preço antes de gerar: aparecem como "+ uso".
+  const usageModels = Object.keys(estimate.byUsage).map((id) => {
+    const m = findModel(id);
+    return m ? labelFor(m, provider) : id;
+  });
+  const fixedCost =
     estimate.total != null ? `~${formatCost(estimate.total, estimate.unit, lang)}` : estimate.loading ? t.estimating : "—";
+  const costText = usageModels.length && estimate.total != null ? `${fixedCost} + ${t.byUsage}` : fixedCost;
 
   async function start() {
     setConfirming(null);
@@ -104,7 +111,10 @@ export function Toolbar() {
         <div className="flex h-7 items-center gap-2 rounded-full border bg-muted/60 px-3 text-xs">
           <span className="font-medium">{t.images(plan.cells.length)}</span>
           <span className="text-muted-foreground">·</span>
-          <span className={cn("tabular-nums", estimate.loading && "text-muted-foreground")}>
+          <span
+            className={cn("tabular-nums", estimate.loading && "text-muted-foreground")}
+            title={usageModels.length ? t.byUsageHint(usageModels.join(", ")) : undefined}
+          >
             {estimate.loading && <Loader2 className="mr-1 inline size-3 animate-spin" />}
             {costText}
           </span>

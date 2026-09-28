@@ -149,6 +149,8 @@ export interface Estimate {
   total: number;
   unit: string;
   perCell: Record<string, number>;
+  /** Células cobradas pelo uso depois de gerar (tokens): descrição do preço, sem valor fixo. */
+  byUsage: Record<string, string>;
   errors: { cellId: string; modelId: string; kind: ErrorKind; message: string }[];
 }
 
@@ -191,7 +193,8 @@ export const api = {
   updateSettings: (patch: Partial<Settings>) => invoke<Settings>("update_settings", { patch }),
   detectCli: () => invoke<CliInfo>("detect_cli"),
   getAccount: () => invoke<AccountInfo>("get_account"),
-  estimateRun: (cells: JobSpec[]) => invoke<Estimate>("estimate_run", { cells }),
+  /** Sem `provider`, usa o modo das configurações; a tabela de preços força "api" ou "cli". */
+  estimateRun: (cells: JobSpec[], provider?: ProviderId) => invoke<Estimate>("estimate_run", { cells, provider: provider ?? null }),
   startRun: (req: StartRunRequest) => invoke<Manifest>("start_run", { req }),
   stopRun: (runId: string) => invoke<Manifest>("stop_run", { runId }),
   rerunCells: (runId: string, cellIds: string[]) => invoke<Manifest>("rerun_cells", { runId, cellIds }),
@@ -211,8 +214,8 @@ export const api = {
   /** Última release no GitHub comparada com a versão instalada. */
   checkUpdate: () => invoke<UpdateInfo>("check_update"),
   credentialStatus: () => invoke<CredentialStatus>("credential_status"),
-  setApiCredentials: (keyId: string, keySecret: string) =>
-    invoke<CredentialStatus>("set_api_credentials", { keyId, keySecret }),
+  /** A chave como o console mostra (`key-id:key-secret`); o Rust separa e valida. */
+  setApiCredentials: (key: string) => invoke<CredentialStatus>("set_api_credentials", { key }),
   clearApiCredentials: () => invoke<CredentialStatus>("clear_api_credentials"),
   /** Testa a chave com o /estimate (grátis); devolve o preço de 1 imagem Soul 2 em US$. */
   testApiCredentials: () => invoke<number>("test_api_credentials"),

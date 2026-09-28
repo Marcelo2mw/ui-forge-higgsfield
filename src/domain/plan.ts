@@ -127,8 +127,9 @@ export function buildPlan(cfg: ForgeConfig, provider: ProviderId): Plan {
           aspect_ratio: ratio,
           ...paramsFor(model, provider, cfg.quality),
         };
-        // Recraft aceita paleta nativa (no CLI só com model_type standard: utility + colors falhou no estudo).
-        if (model.id === "recraft-v4.1" && (provider === "api" || params.model_type === "standard")) {
+        // Recraft aceita paleta nativa em todos os modos da API; no CLI só com model_type standard
+        // (utility + colors falhou no estudo).
+        if (model.id.startsWith("recraft-v4.1") && (provider === "api" || params.model_type === "standard")) {
           params.colors = recraftColors(palette, provider);
         }
         cells.push({

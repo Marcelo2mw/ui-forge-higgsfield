@@ -36,6 +36,14 @@ impl JobSpec {
     }
 }
 
+/// Preço de uma imagem: fixo, ou cobrado pelo uso depois de gerar (ex.: tokens), quando o
+/// /estimate só devolve a descrição da tabela de preços.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Price {
+    Fixed(f64),
+    ByUsage(String),
+}
+
 #[derive(Debug, Clone)]
 pub struct Submitted {
     pub remote_id: String,
@@ -114,11 +122,11 @@ impl Provider {
         }
     }
 
-    pub async fn estimate(&self, target: &str, params: &Map<String, Value>) -> AppResult<f64> {
+    pub async fn estimate(&self, target: &str, params: &Map<String, Value>) -> AppResult<Price> {
         match self {
-            Self::Cli(p) => p.estimate(target, params).await,
+            Self::Cli(p) => p.estimate(target, params).await.map(Price::Fixed),
             Self::Api(p) => p.estimate(target, params).await,
-            Self::Mock(p) => Ok(p.estimate(target)),
+            Self::Mock(p) => Ok(Price::Fixed(p.estimate(target))),
         }
     }
 

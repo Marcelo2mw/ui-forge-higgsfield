@@ -111,6 +111,8 @@ export interface ModelDef {
     aspectRatios?: string[];
     maxPromptChars?: number;
     params: Record<QualityTier, Params>;
+    /** "A partir de" US$ por imagem na tabela de preços do console; o preço exato vem do /estimate. */
+    priceFromUsd?: number;
   };
 }
 
